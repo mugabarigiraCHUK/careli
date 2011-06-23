@@ -1,4 +1,5 @@
 #summary Introduction to Careli project for contributors and submitters.
+#labels Featured
 
 = Introduction =
 
