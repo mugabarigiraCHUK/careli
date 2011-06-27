@@ -1,6 +1,17 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * Tests:
+ * Referral cruds
+ * Case lifecycle simmulations
+ * Administrator status change
+ * NotifyAdmin of any event
+ * View own referral list
+ * View someone else's referral list
+ * View everybody's referral list
+ * View referral detail
+ * Change referral status
+ * Include referrer
+ * Exclude referrer
+ * Throw events via jms
  */
 package do_.com.bpd.business.referrals.tests;
 
