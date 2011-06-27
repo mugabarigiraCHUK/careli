@@ -15,6 +15,7 @@ import java.io.FileNotFoundException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,7 @@ public class StatusFileProcessor {
     public static final String SYSTEM_USER_ROLE = "SYSTEM";
     private static final Logger logger = Logger.getLogger(StatusFileProcessor.class.getName());
     public static int attempts = 0;
+    public static final String CONFIG_PATH = "do_/com/bpd/business/referrals/referralservermanager/config";
 
     public StatusFileProcessor(final String[] receivedFiles) {
         Runnable r = new Runnable() {
@@ -44,7 +46,7 @@ public class StatusFileProcessor {
             String[] receivedFilesNames = receivedFiles;
             File[] receivedFilesFO = null;
             int iCounter = 0;
-            private List<String> expectedMeaninglessStatus = new ArrayList();
+            private List<String> expectedMeaninglessStatus = null;
 
             public void run() {
                 try {
@@ -155,7 +157,7 @@ public class StatusFileProcessor {
 
             private void processDeletedReferral(Referral referral) {
                 //This should never happen
-                logger.log(Level.WARNING, "A deleted referral arrived at StatusFileProcessor. This should not be happening. The referral id is : " + referral.getId());
+                logger.log(Level.WARNING, "A deleted referral arrived at StatusFileProcessor. This should not be happening. The referral id is : {0}", referral.getId());
             }
 
             private void processIssuedProductReferral(Referral referral) throws Exception {
@@ -307,6 +309,11 @@ public class StatusFileProcessor {
              */
             private boolean isAnExpectedMeaninglessBusinessCaseStatus(String businessCaseStatus) {
                 //TODO: Fill up the meaningless cases status
+                if (expectedMeaninglessStatus.isEmpty()) {
+                    String uselessStata = java.util.ResourceBundle.getBundle(CONFIG_PATH).getString("USELESS_STATUS");
+                    List<String> asList = Arrays.asList(uselessStata);
+                    expectedMeaninglessStatus = asList;
+                }
                 return expectedMeaninglessStatus.contains(businessCaseStatus);
             }
 
