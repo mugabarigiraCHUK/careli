@@ -50,4 +50,10 @@ public class CreditScoreBusinessCase extends BusinessCaseAbstractClass {
     public Map<String, Object> getBusinessCaseRow() {
         return this.businessCaseRow;
     }
+
+    @Override
+    public String getBusinessCaseStatus() {
+        String businessCaseStatus = (String) this.getBusinessCaseRow().get("status");
+        return businessCaseStatus;
+    }
 }

@@ -34,6 +34,7 @@ public class StatusFileProcessor {
     public static String PROCESSING_STATUS_PROP = "do_.com.bpd.business.referrals.referralservermanager.statusprocessor.processingStatusProp";
     public static final String READY = "ready";
     public static final String BUSY = "busy";
+    public static final String SYSTEM_USER_ROLE = "SYSTEM";
     private static final Logger logger = Logger.getLogger(StatusFileProcessor.class.getName());
     public static int attempts = 0;
 
@@ -43,6 +44,7 @@ public class StatusFileProcessor {
             String[] receivedFilesNames = receivedFiles;
             File[] receivedFilesFO = null;
             int iCounter = 0;
+            private List<String> expectedMeaninglessStatus = new ArrayList();
 
             public void run() {
                 try {
@@ -97,6 +99,9 @@ public class StatusFileProcessor {
                     } else if (status.equals(ReferralManager.CLOSED_STATUS)) {
                         //Nothing is done when the status is closed                
                         processClosedReferral(referral);
+                    } else if (status.equals(ReferralManager.CANCELLED_STATUS)) {
+                        //Nothing is done when the status is closed                
+                        processCancelledReferral(referral);
                     } else {
                         //Nothing is done when the status is closed                
                         processUnknownStatusReferral(referral);
@@ -112,22 +117,69 @@ public class StatusFileProcessor {
             private void processNewReferral(Referral referral) throws Exception {
                 BusinessCaseAbstractClass referralCase = getReferralLastBusinessCase(referral);
                 if (null != referralCase) {
-                    //The new referral has being captured
+                    //The new referral has being captured whatsoever
                     referral.setStatus(ReferralManager.CAPTURED_STATUS);
-                    Referral saveReferral = ReferralManager.getDefault("LOGGED USER").saveReferral(referral, null);
+                    Referral saveReferral = ReferralManager.getDefault(SYSTEM_USER_ROLE).saveReferral(referral, null);
+                } else {
+                    //The referral product form has not been captured
+                    //Nothing to do but wait
                 }
             }
 
+            /**
+             * Processes captured referrals
+             */
             private void processCapturedReferral(Referral referral) throws Exception {
                 BusinessCaseAbstractClass referralCase = getReferralLastBusinessCase(referral);
+                String businessCaseStatus = referralCase.getBusinessCaseStatus();
+                if (businessCaseStatus.equals("CAPTURED")) {
+                    //It is still in capture state
+                    //Nothing to do by now but wait
+                } else if (businessCaseStatus.equals("APPROVED")) {
+                    //Product has been approved and is ready to be issued
+                    referral.setStatus(ReferralManager.ISSUED_STATUS);
+                    ReferralManager.getDefault(SYSTEM_USER_ROLE).saveReferral(referral, null);
+                } else if (businessCaseStatus.equals("REJECTED")) {
+                    //The request have been rejected. Let's cancel it
+                    referral.setStatus(ReferralManager.CANCELLED_STATUS);
+                    ReferralManager.getDefault(SYSTEM_USER_ROLE).saveReferral(referral, null);
+                } else {
+                    //There is an unexpected status
+                    if (!isAnExpectedMeaninglessBusinessCaseStatus(businessCaseStatus)) {
+                        processUnknownBusinessCaseStatus(referral, referralCase);
+                    } else {
+                        //Do nothing. Everything is fine
+                    }
+                }
             }
 
             private void processDeletedReferral(Referral referral) {
                 //This should never happen
+                logger.log(Level.WARNING, "A deleted referral arrived at StatusFileProcessor. This should not be happening. The referral id is : " + referral.getId());
             }
 
             private void processIssuedProductReferral(Referral referral) throws Exception {
                 BusinessCaseAbstractClass referralCase = getReferralLastBusinessCase(referral);
+                String businessCaseStatus = referralCase.getBusinessCaseStatus();
+                if (businessCaseStatus.equals("ISSUED")) {
+                    //The referral case is still in issued status
+                    //Nothing to do by now
+                } else if (businessCaseStatus.equals("ACTIVE")) {
+                    //The product has been activated thus delivered.
+                    referral.setStatus(ReferralManager.ACTIVATED_STATUS);
+                    ReferralManager.getDefault(SYSTEM_USER_ROLE).saveReferral(referral, null);
+                } else if (businessCaseStatus.equals("USED")) {
+                    //Just in case the product have been used, let's skip to closed
+                    referral.setStatus(ReferralManager.CLOSED_STATUS);
+                    ReferralManager.getDefault(SYSTEM_USER_ROLE).saveReferral(referral, null);
+                } else {
+                    //There is an unexpected status
+                    if (!isAnExpectedMeaninglessBusinessCaseStatus(businessCaseStatus)) {
+                        processUnknownBusinessCaseStatus(referral, referralCase);
+                    } else {
+                        //Do nothing. Everything is fine
+                    }
+                }
             }
 
             /**
@@ -135,6 +187,22 @@ public class StatusFileProcessor {
              */
             private void processActivatedProductReferral(Referral referral) throws Exception {
                 BusinessCaseAbstractClass referralCase = getReferralLastBusinessCase(referral);
+                String businessCaseStatus = referralCase.getBusinessCaseStatus();
+                if (businessCaseStatus.equals("ACTIVE")) {
+                    //The referral is still in active status. Meaning it haven't been used just yet
+                    //Nothing to do by now but wait
+                } else if (businessCaseStatus.equals("USED")) {
+                    //The product has been used so the referral is closed whatsoever
+                    referral.setStatus(ReferralManager.CLOSED_STATUS);
+                    ReferralManager.getDefault(SYSTEM_USER_ROLE).saveReferral(referral, null);
+                } else {
+                    //There is an unexpected status
+                    if (!isAnExpectedMeaninglessBusinessCaseStatus(businessCaseStatus)) {
+                        processUnknownBusinessCaseStatus(referral, referralCase);
+                    } else {
+                        //Do nothing. Everything is fine
+                    }
+                }
             }
 
             /**
@@ -142,6 +210,23 @@ public class StatusFileProcessor {
              */
             private void processUsedProductReferral(Referral referral) throws Exception {
                 BusinessCaseAbstractClass referralCase = getReferralLastBusinessCase(referral);
+                String businessCaseStatus = referralCase.getBusinessCaseStatus();
+                if (businessCaseStatus.equals("USED")) {
+                    //The referral case is still in used status. It should have been already promoted to closed
+                    if (referral.getStatus().equals(ReferralManager.CLOSED_STATUS)) {
+                        referral.setStatus(ReferralManager.CLOSED_STATUS);
+                        ReferralManager.getDefault(SYSTEM_USER_ROLE).saveReferral(referral, null);
+                    } else {
+                        //Nothing else to do. This is closed.
+                    }
+                } else {
+                    //There is an unexpected status
+                    if (!isAnExpectedMeaninglessBusinessCaseStatus(businessCaseStatus)) {
+                        processUnknownBusinessCaseStatus(referral, referralCase);
+                    } else {
+                        //Do nothing
+                    }
+                }
             }
 
             /**
@@ -149,17 +234,17 @@ public class StatusFileProcessor {
              */
             private void processClosedReferral(Referral referral) {
                 //Nothing should be done when a referral is closed except to change the state if not changed
+                //This should never be executed. But just in case...
+                logger.log(Level.WARNING, "A closed referral is being processed. This should not be happening");
             }
 
             /**
              * Processes a referral that comes with an unexpected status
              */
             private void processUnknownStatusReferral(Referral referral) throws Exception {
-                BusinessCaseAbstractClass referralCase = getReferralLastBusinessCase(referral);
-
-                //Attempt to change the status
-
-                //Perform discrete operations for this circumstances
+                String unknownStatusStr = (referral.getStatus().isEmpty()) ? "[EMPTY]" : referral.getStatus();
+                logger.log(Level.WARNING, "Unknown referral status is being processed. The status is " + unknownStatusStr + ", the referral id is ", String.valueOf(referral.getId()));
+                //TODO: tellAdmin("Unknown referral status is being processed for referral with id: " + referral.getId());
             }
 
             /**
@@ -216,6 +301,25 @@ public class StatusFileProcessor {
                 }
                 return businessCaseFound;
             }
+
+            /**
+             * Returns true if the status is expected although meaningless
+             */
+            private boolean isAnExpectedMeaninglessBusinessCaseStatus(String businessCaseStatus) {
+                //TODO: Fill up the meaningless cases status
+                return expectedMeaninglessStatus.contains(businessCaseStatus);
+            }
+
+            /**
+             * Prompts a user for solution to this case
+             */
+            private void processUnknownBusinessCaseStatus(Referral referral, BusinessCaseAbstractClass referralCase) {
+                //TODO: Implement
+            }
+
+            private void processCancelledReferral(Referral referral) {
+                logger.log(Level.WARNING, "Cancelled referral processed. This should not happen");
+            }
         };
         String processingStatus = System.getProperty(StatusFileProcessor.PROCESSING_STATUS_PROP, "");
 
@@ -238,7 +342,7 @@ public class StatusFileProcessor {
      * @return 
      */
     private List<Referral> loadActiveReferrals() {
-        List<Referral> activeReferrals = ReferralManager.getDefault("SYSTEM").getActiveReferrals();
+        List<Referral> activeReferrals = ReferralManager.getDefault(SYSTEM_USER_ROLE).getActiveReferrals();
         return activeReferrals;
     }
 }

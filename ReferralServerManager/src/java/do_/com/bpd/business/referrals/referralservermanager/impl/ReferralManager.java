@@ -34,6 +34,7 @@ public class ReferralManager implements IReferralManager {
     public static final String ACTIVATED_STATUS = "ACTIVATED";
     public static final String USED_STATUS = "USED";
     public static final String CLOSED_STATUS = "CLOSED";
+    public static final String CANCELLED_STATUS = "CANCELLED";
     private static ReferralManager instance = null;
     private static String localLoggedUser = "";
     private ReferralJpaController rc;
@@ -132,7 +133,7 @@ public class ReferralManager implements IReferralManager {
 
     @Override
     public boolean deleteReferral(int referralId, String comment) {
-        authorize("ADMIN,OWNER");
+        authorize("ADMIN,OWNER,SYSTEM");
 
         System.out.println("REFERRAL ID " + referralId);
 
@@ -167,9 +168,7 @@ public class ReferralManager implements IReferralManager {
                 Logger.getLogger(ReferralManager.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-
         //Register change
-
         return deleted;
     }
 
@@ -193,7 +192,7 @@ public class ReferralManager implements IReferralManager {
 
     @Override
     public Referral saveReferral(Referral referral, Map<String, Object> options) throws Exception {
-        authorize("OWNER,ADMIN");
+        authorize("OWNER,ADMIN,SYSTEM");
         try {
             //VAlidate
             Referral ref = this.getAnyReferral(referral.getId());
@@ -241,7 +240,7 @@ public class ReferralManager implements IReferralManager {
     }
 
     public Referral getAnyReferral(int referralId) {
-        authorize("ADMIN");
+        authorize("ADMIN,SYSTEM");
         ReferralJpaController rjc = getReferralController();
         Referral findReferral = rjc.findReferral(referralId);
         return findReferral;
@@ -252,26 +251,32 @@ public class ReferralManager implements IReferralManager {
         return getGson().toJson(referral);
     }
 
+    //<editor-fold defaultstate="collapsed" desc="Validations">
     private boolean requiredInfoComplete(Referral rf) {
         return true;
     }
-
+    
     private boolean referrerIsNotSuspended(String referrerId) {
         return true;
     }
-
+    
     private boolean clientIsReadyToRefer(Referral rf) {
         return true;
     }
-
+    
     private boolean ipIsInRange(String sourceIp) {
         return true;
     }
-
+    
     private boolean isWithinDateRange(Referral rf) {
         return true;
     }
+    //</editor-fold>
 
+    /**
+     * Proxies to the Authorization Service
+     * @param roles 
+     */
     private void authorize(String roles) {
         return;
     }

@@ -46,6 +46,8 @@ public abstract class BusinessCaseAbstractClass {
     public Object getField(String fieldName) {
         return this.getBusinessCaseRow().get(fieldName);
     }
+    
+    public abstract String getBusinessCaseStatus();
 
     private Map<String, Object> buildBusinessCaseRow(String[] businessCaseRow) throws Exception {
         if(businessCaseRow.length != getCSVColumns().length){
